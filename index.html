@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Tic-Tac-Toe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+
+        /* Remove arrows from number input */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .zoom-in {
+            animation: zoomIn 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes zoomIn {
+            from {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen transition-colors duration-500 font-sans bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+
+    <!-- Winner Modal -->
+    <div id="winner-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 max-w-md w-full text-center border border-slate-200 dark:border-slate-700 transform transition-all scale-95 duration-300"
+            id="winner-content">
+            <div class="flex justify-center mb-6">
+                <div id="winner-icon-bg"
+                    class="p-5 rounded-full ring-4 bg-yellow-50 dark:bg-yellow-900/20 ring-yellow-50 dark:ring-yellow-900/10">
+                    <svg class="w-16 h-16 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                        <path d="M4 22h16" />
+                        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                    </svg>
+                </div>
+            </div>
+            <h2 id="winner-title" class="text-3xl font-extrabold mb-2 text-slate-800 dark:text-white tracking-tight">
+            </h2>
+            <p id="winner-msg" class="text-slate-500 dark:text-slate-400 mb-8 leading-relaxed"></p>
+            <div class="space-y-3">
+                <button onclick="app.resetGame()"
+                    class="w-full py-3.5 text-lg font-medium rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 transition-all">
+                    Play Again
+                </button>
+                <button onclick="app.closeModal()"
+                    class="w-full text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                    Close Analysis
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header
+        class="px-6 py-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md sticky top-0 z-40">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20">
+                <svg class="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+            </div>
+            <div>
+                <h1
+                    class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Quantum Tac-Toe</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Orthogonal Superposition Engine</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                <button onclick="app.setMode('human_vs_human')" id="btn-pvp"
+                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all text-slate-500 hover:text-slate-700 dark:text-slate-400">PvP</button>
+                <button onclick="app.setMode('human_vs_ai')" id="btn-pvai"
+                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white">PvAI</button>
+            </div>
+            <button onclick="app.toggleTheme()"
+                class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                <svg id="icon-sun" class="w-5 h-5 hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2" />
+                    <path d="M12 20v2" />
+                    <path d="m4.93 4.93 1.41 1.41" />
+                    <path d="m17.66 17.66 1.41 1.41" />
+                    <path d="M2 12h2" />
+                    <path d="M20 12h2" />
+                    <path d="m6.34 17.66-1.41 1.41" />
+                    <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+                <svg id="icon-moon" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+
+            <!-- Status Bar -->
+            <div
+                class="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 flex justify-between items-center bg-gradient-to-r from-blue-500/10 to-purple-500/10 border-blue-200 dark:border-blue-900">
+                <div class="flex items-center gap-3">
+                    <span id="turn-badge"
+                        class="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        TURN: X
+                    </span>
+                    <span id="move-count" class="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        Move #1
+                    </span>
+                </div>
+                <button onclick="app.resetGame()"
+                    class="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-600 dark:text-slate-400">
+                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Board -->
+            <div id="game-board"
+                class="aspect-square w-full max-w-[500px] mx-auto bg-slate-200 dark:bg-slate-700 rounded-2xl p-2 shadow-inner grid grid-cols-3 gap-2">
+                <!-- Board generated by JS -->
+            </div>
+
+            <!-- Move Composer -->
+            <div
+                class="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-visible">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <h3 class="font-semibold text-slate-700 dark:text-slate-200">Quantum Move Composer</h3>
+                </div>
+                <div class="p-4" id="composer-content">
+                    <!-- Composer Content injected by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- Weights -->
+            <div
+                class="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <h3 class="font-semibold text-slate-700 dark:text-slate-200">Quantum Weights Analysis</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div
+                        class="grid grid-cols-3 gap-2 text-xs font-mono text-center pb-2 border-b border-slate-100 dark:border-slate-700 text-slate-500">
+                        <div class="text-left pl-2">Line</div>
+                        <div class="text-blue-500">Player X</div>
+                        <div class="text-red-500">Player O</div>
+                    </div>
+                    <div id="weights-list" class="max-h-[200px] overflow-y-auto scrollbar-thin pr-2 space-y-2">
+                        <!-- Weights injected by JS -->
+                    </div>
+                    <p class="text-xs text-slate-400 italic text-center mt-2">Weight ≥ 1.5 triggers collapse and
+                        victory.</p>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div
+                class="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col flex-1 min-h-[300px]">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                    <h3 class="font-semibold text-slate-700 dark:text-slate-200">Quantum Logs</h3>
+                </div>
+                <div id="history-list" class="p-4 flex-1 overflow-y-auto max-h-[300px] space-y-3 pr-2 scrollbar-thin">
+                    <div class="text-center text-slate-400 py-10 text-sm">No moves recorded yet.</div>
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div
+                class="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4 flex gap-3">
+                <svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4" />
+                    <path d="M12 8h.01" />
+                </svg>
+                <div class="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                    <p class="font-semibold">How to Play:</p>
+                    <ul class="list-disc pl-4 space-y-1 opacity-80">
+                        <li>Create moves by assigning integers to multiple squares (e.g., 5, 10).</li>
+                        <li>The system normalizes these inputs into a quantum state vector.</li>
+                        <li>Moves must be orthogonal (independent). System handles the math.</li>
+                        <li>Occupy rows, columns, or diagonals with a total Quantum Weight of 1.5+ to win.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        /**
+         * MATH UTILITIES
+         */
+        const MathUtils = {
+            dot: (v1, v2) => v1.reduce((acc, val, i) => acc + val * v2[i], 0),
+            norm: (v) => Math.sqrt(v.reduce((acc, val) => acc + val * val, 0)),
+            scale: (v, s) => v.map(val => val * s),
+            sub: (v1, v2) => v1.map((val, i) => val - v2[i]),
+            normalize: (v) => {
+                const n = MathUtils.norm(v);
+                return n < 1e-10 ? v.map(() => 0) : v.map(val => val / n);
+            },
+            gramSchmidt: (desired, historyVectors) => {
+                let orthogonal = [...desired];
+                if (MathUtils.norm(orthogonal) > 1e-10) {
+                    orthogonal = MathUtils.normalize(orthogonal);
+                }
+                for (let prev of historyVectors) {
+                    const dotProd = MathUtils.dot(prev, orthogonal);
+                    const projection = MathUtils.scale(prev, dotProd);
+                    orthogonal = MathUtils.sub(orthogonal, projection);
+                }
+                const norm = MathUtils.norm(orthogonal);
+                if (norm < 1e-10) return null;
+                return MathUtils.scale(orthogonal, 1 / norm);
+            }
+        };
+
+        /**
+         * CONSTANTS
+         */
+        const WINNING_LINES = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        const AI_STRATEGIES = [
+            [0, 0, 0, 0, 1, 0, 0, 0, 0],
+            [0.5, 0, 0.5, 0, 0, 0, 0.5, 0, 0.5],
+            [0, 0.5, 0, 0.5, 0, 0.5, 0, 0.5, 0],
+            [0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6],
+            [0, 0, 0.6, 0, 0.6, 0, 0.6, 0, 0]
+        ];
+
+        /**
+         * APP STATE & LOGIC
+         */
+        class GameApp {
+            constructor() {
+                this.state = {
+                    darkMode: true,
+                    mode: 'human_vs_ai',
+                    history: [],
+                    currentPlayer: 'X',
+                    winner: null,
+                    inputVector: Array(9).fill(0),
+                    isThinking: false
+                };
+
+                // Initial Render
+                this.init();
+            }
+
+            init() {
+                if (localStorage.theme === 'light') {
+                    this.state.darkMode = false;
+                }
+                this.applyTheme();
+                this.render();
+            }
+
+            // --- Actions ---
+
+            toggleTheme() {
+                this.state.darkMode = !this.state.darkMode;
+                localStorage.theme = this.state.darkMode ? 'dark' : 'light';
+                this.applyTheme();
+            }
+
+            applyTheme() {
+                const html = document.documentElement;
+                const sun = document.getElementById('icon-sun');
+                const moon = document.getElementById('icon-moon');
+
+                if (this.state.darkMode) {
+                    html.classList.add('dark');
+                    sun.classList.remove('hidden');
+                    moon.classList.add('hidden');
+                } else {
+                    html.classList.remove('dark');
+                    sun.classList.add('hidden');
+                    moon.classList.remove('hidden');
+                }
+            }
+
+            setMode(mode) {
+                this.state.mode = mode;
+                this.resetGame();
+            }
+
+            resetGame() {
+                this.state.history = [];
+                this.state.currentPlayer = 'X';
+                this.state.winner = null;
+                this.state.inputVector = Array(9).fill(0);
+                this.state.isThinking = false;
+                this.closeModal();
+                this.render();
+            }
+
+            closeModal() {
+                const modal = document.getElementById('winner-modal');
+                modal.classList.add('hidden');
+                modal.classList.remove('opacity-100');
+            }
+
+            handleInputChange(index, value) {
+                // Parse integer directly
+                const num = parseInt(value);
+                this.state.inputVector[index] = isNaN(num) ? 0 : num;
+
+                // Render only the board and stats to keep focus on the input field
+                this.render(true);
+            }
+
+            handleCellClick(index) {
+                if (this.state.winner || this.state.isThinking) return;
+
+                // Shortcut to add amplitude
+                if (this.state.mode === 'human_vs_human' || this.state.currentPlayer === 'X') {
+                    const currentVal = this.state.inputVector[index];
+                    this.state.inputVector[index] = currentVal > 0 ? 0 : 1;
+                    this.render(); // Full render is fine here as we aren't typing
+                }
+            }
+
+            submitMove() {
+                if (MathUtils.norm(this.state.inputVector) === 0) {
+                    alert("Please add amplitude to at least one square.");
+                    return;
+                }
+
+                const result = this.commitMove(this.state.inputVector, this.state.currentPlayer);
+                if (!result.success) {
+                    alert(result.message);
+                } else {
+                    this.render();
+                    // Trigger AI if needed
+                    if (!this.state.winner && this.state.mode === 'human_vs_ai' && this.state.currentPlayer === 'O') {
+                        this.state.isThinking = true;
+                        this.render(); // Show thinking state
+                        setTimeout(() => this.makeAIMove(), 600);
+                    }
+                }
+            }
+
+            commitMove(vector, player) {
+                const prevVectors = this.state.history.map(h => h.vector);
+                // This will normalize the integer vector
+                const orthogonal = MathUtils.gramSchmidt(vector, prevVectors);
+
+                if (!orthogonal) return { success: false, message: "Move collapsed to zero (not orthogonal)." };
+
+                const squares = [];
+                orthogonal.forEach((val, i) => {
+                    if (Math.abs(val) > 1e-4) squares.push(i);
+                });
+
+                if (squares.length === 0) return { success: false, message: "No valid squares affected." };
+
+                // Update history
+                this.state.history.push({
+                    player,
+                    vector: orthogonal,
+                    moveNum: this.state.history.length + 1,
+                    squares
+                });
+
+                this.state.inputVector = Array(9).fill(0);
+                this.checkGameState();
+                return { success: true };
+            }
+
+            checkGameState() {
+                const weights = this.calculateWeights();
+                let tempWinner = null;
+
+                for (let i = 0; i < 8; i++) {
+                    if (weights.X[i] >= 1.5) tempWinner = 'X';
+                    if (weights.O[i] >= 1.5) tempWinner = 'O';
+                }
+
+                if (tempWinner) {
+                    this.state.winner = tempWinner;
+                    this.showWinner(tempWinner);
+                } else if (this.state.history.length >= 9) {
+                    this.state.winner = 'Draw';
+                    this.showWinner('Draw');
+                } else {
+                    this.state.currentPlayer = this.state.currentPlayer === 'X' ? 'O' : 'X';
+                }
+            }
+
+            showWinner(winner) {
+                const modal = document.getElementById('winner-modal');
+                const title = document.getElementById('winner-title');
+                const msg = document.getElementById('winner-msg');
+                const iconBg = document.getElementById('winner-icon-bg');
+
+                modal.classList.remove('hidden');
+                // Trigger reflow
+                void modal.offsetWidth;
+                modal.classList.add('opacity-100');
+
+                if (winner === 'Draw') {
+                    title.innerText = "Game Drawn";
+                    msg.innerText = "The quantum state has reached equilibrium. No observer could force a collapse.";
+                    iconBg.className = "p-5 rounded-full ring-4 bg-slate-100 dark:bg-slate-700 ring-slate-50 dark:ring-slate-800";
+                } else {
+                    title.innerText = `Player ${winner} Wins!`;
+                    msg.innerText = `Congratulations! The probability waves have successfully collapsed in favor of Player ${winner}.`;
+                    iconBg.className = "p-5 rounded-full ring-4 bg-yellow-50 dark:bg-yellow-900/20 ring-yellow-50 dark:ring-yellow-900/10";
+                }
+            }
+
+            calculateWeights(historySubset = null) {
+                const hist = historySubset || this.state.history;
+                const totalX = Array(9).fill(0);
+                const totalO = Array(9).fill(0);
+
+                hist.forEach(({ player, vector }) => {
+                    const target = player === 'X' ? totalX : totalO;
+                    vector.forEach((amp, i) => target[i] += amp);
+                });
+
+                const lineWeights = { X: [], O: [] };
+                WINNING_LINES.forEach(line => {
+                    const wX = line.reduce((sum, idx) => sum + (totalX[idx] * totalX[idx]), 0);
+                    const wO = line.reduce((sum, idx) => sum + (totalO[idx] * totalO[idx]), 0);
+                    lineWeights.X.push(wX);
+                    lineWeights.O.push(wO);
+                });
+                return lineWeights;
+            }
+
+            // --- AI Logic ---
+
+            makeAIMove() {
+                const prevVectors = this.state.history.map(h => h.vector);
+                let bestMove = null;
+                let bestScore = -Infinity; // AI is playing 'O', we want to Maximize O's perspective
+
+                const possibleMoves = [];
+
+                // Strategy-based moves
+                AI_STRATEGIES.forEach(strategy => {
+                    const ortho = MathUtils.gramSchmidt(strategy, prevVectors);
+                    if (ortho) possibleMoves.push(ortho);
+                });
+
+                // Fallback single squares
+                if (possibleMoves.length === 0) {
+                    for (let i = 0; i < 9; i++) {
+                        const base = Array(9).fill(0);
+                        base[i] = 1;
+                        const ortho = MathUtils.gramSchmidt(base, prevVectors);
+                        if (ortho) possibleMoves.push(ortho);
+                    }
+                }
+
+                // Eval
+                possibleMoves.forEach(move => {
+                    const squares = [];
+                    move.forEach((val, i) => { if (Math.abs(val) > 1e-4) squares.push(i); });
+
+                    const simHistory = [
+                        ...this.state.history,
+                        { player: 'O', vector: move, moveNum: this.state.history.length + 1, squares }
+                    ];
+
+                    const score = this.evaluatePosition(simHistory, 'O');
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = move;
+                    }
+                });
+
+                this.state.isThinking = false;
+                if (bestMove) {
+                    this.commitMove(bestMove, 'O');
+                    this.render();
+                } else {
+                    alert("AI Stuck!");
+                    this.render();
+                }
+            }
+
+            evaluatePosition(simHistory, player) {
+                const weights = this.calculateWeights(simHistory);
+                let score = 0;
+                const opp = player === 'O' ? 'X' : 'O';
+
+                // Weights arrays have 8 lines
+                for (let i = 0; i < 8; i++) {
+                    const wMy = weights[player][i];
+                    const wOpp = weights[opp][i];
+
+                    if (wMy >= 1.5) score += 1000;
+                    else if (wOpp >= 1.5) score -= 1000;
+                    else score += (wMy * 10 - wOpp * 8);
+                }
+                return score;
+            }
+
+            // --- Render Logic ---
+
+            render(skipComposer = false) {
+                this.renderButtons();
+                this.renderStatus();
+                this.renderBoard();
+                if (!skipComposer) this.renderComposer();
+                this.renderWeights();
+                this.renderHistory();
+            }
+
+            renderButtons() {
+                const btnPvp = document.getElementById('btn-pvp');
+                const btnPvai = document.getElementById('btn-pvai');
+                const activeClass = "bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white";
+                const inactiveClass = "text-slate-500 hover:text-slate-700 dark:text-slate-400";
+
+                if (this.state.mode === 'human_vs_human') {
+                    btnPvp.className = `px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeClass}`;
+                    btnPvai.className = `px-3 py-1.5 rounded-md text-sm font-medium transition-all ${inactiveClass}`;
+                } else {
+                    btnPvp.className = `px-3 py-1.5 rounded-md text-sm font-medium transition-all ${inactiveClass}`;
+                    btnPvai.className = `px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeClass}`;
+                }
+            }
+
+            renderStatus() {
+                const turnBadge = document.getElementById('turn-badge');
+                const moveCount = document.getElementById('move-count');
+
+                turnBadge.innerText = `TURN: ${this.state.currentPlayer}`;
+                turnBadge.className = `px-3 py-1 rounded-full text-xs font-bold ${this.state.currentPlayer === 'X'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                        : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                    }`;
+
+                moveCount.innerText = `Move #${this.state.history.length + 1}`;
+            }
+
+            renderBoard() {
+                const boardDiv = document.getElementById('game-board');
+                boardDiv.innerHTML = '';
+
+                // Prepare cell data
+                const cellData = Array(9).fill(null).map(() => []);
+                this.state.history.forEach(({ player, vector, moveNum, squares }) => {
+                    squares.forEach(sq => {
+                        cellData[sq].push({ player, moveNum, amplitude: Math.abs(vector[sq]) });
+                    });
+                });
+
+                cellData.forEach((moves, idx) => {
+                    const hasX = moves.some(m => m.player === 'X');
+                    const hasO = moves.some(m => m.player === 'O');
+
+                    let bgClass = "bg-white dark:bg-slate-800";
+                    if (hasX && !hasO) bgClass = "bg-blue-50 dark:bg-blue-900/20";
+                    if (!hasX && hasO) bgClass = "bg-red-50 dark:bg-red-900/20";
+                    if (hasX && hasO) bgClass = "bg-purple-50 dark:bg-purple-900/20";
+
+                    const cell = document.createElement('div');
+                    cell.className = `relative rounded-xl flex flex-col items-center justify-center p-2 cursor-pointer transition-all duration-200 hover:shadow-md group ${bgClass}`;
+                    cell.onclick = () => this.handleCellClick(idx);
+
+                    // Number label
+                    const label = document.createElement('span');
+                    label.className = "absolute top-1 left-2 text-[10px] text-slate-300 dark:text-slate-600 font-mono";
+                    label.innerText = idx + 1;
+                    cell.appendChild(label);
+
+                    // Input overlay
+                    if (this.state.inputVector[idx] > 0) {
+                        const overlay = document.createElement('div');
+                        overlay.className = "absolute inset-0 ring-2 ring-inset ring-yellow-400/50 rounded-xl pointer-events-none flex items-center justify-center bg-yellow-400/10 z-10";
+                        overlay.innerHTML = `<span class="font-bold text-yellow-600 dark:text-yellow-400 drop-shadow-md">+${this.state.inputVector[idx]}</span>`;
+                        cell.appendChild(overlay);
+                    }
+
+                    // Moves container
+                    const movesContainer = document.createElement('div');
+                    movesContainer.className = "flex flex-col gap-1 items-center w-full overflow-y-auto max-h-full scrollbar-none";
+
+                    if (moves.length === 0) {
+                        const dot = document.createElement('div');
+                        dot.className = "w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-slate-300 dark:group-hover:bg-slate-600 transition-colors";
+                        movesContainer.appendChild(dot);
+                    } else {
+                        moves.forEach(m => {
+                            const pill = document.createElement('div');
+                            pill.className = `text-[10px] font-bold px-1.5 py-0.5 rounded-full w-full text-center truncate ${m.player === 'X'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-200'
+                                }`;
+                            pill.innerHTML = `${m.player}${m.moveNum} <span class="opacity-70 text-[8px]">(${m.amplitude.toFixed(2)})</span>`;
+                            movesContainer.appendChild(pill);
+                        });
+                    }
+                    cell.appendChild(movesContainer);
+                    boardDiv.appendChild(cell);
+                });
+            }
+
+            renderComposer() {
+                const div = document.getElementById('composer-content');
+                div.innerHTML = '';
+
+                if (this.state.winner) {
+                    div.innerHTML = `<div class="p-8 text-center text-slate-500">Game Over. Press reset to play again.</div>`;
+                    return;
+                }
+
+                if (this.state.isThinking) {
+                    div.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-8 gap-4 text-slate-500 animate-pulse">
+                    <svg class="w-12 h-12 text-purple-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.97-3.284"/><path d="M17.97 14.716A4 4 0 0 1 16 18"/></svg>
+                    <p>AI is calculating probability waves...</p>
+                </div>`;
+                    return;
+                }
+
+                // Header
+                const header = document.createElement('div');
+                header.className = "flex justify-between items-center mb-2";
+                header.innerHTML = `
+            <p class="text-sm text-slate-500">Input integers directly.</p>
+            <button onclick="app.resetInput()" class="text-xs h-8 text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Clear</button>
+        `;
+                div.appendChild(header);
+
+                // Inputs Grid
+                const grid = document.createElement('div');
+                grid.className = "grid grid-cols-3 gap-3 mb-4";
+
+                this.state.inputVector.forEach((val, idx) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "flex flex-col gap-1";
+                    wrapper.innerHTML = `
+                <label class="text-xs text-slate-500 dark:text-slate-400 font-medium ml-1">Sq ${idx + 1}</label>
+                <input type="number" min="0" step="1" value="${val}" 
+                    oninput="app.handleInputChange(${idx}, this.value)"
+                    class="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-center font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all placeholder-slate-400 dark:placeholder-slate-500">
+            `;
+                    grid.appendChild(wrapper);
+                });
+                div.appendChild(grid);
+
+                // Button
+                const btnContainer = document.createElement('div');
+                btnContainer.className = "pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end";
+                btnContainer.innerHTML = `
+            <button onclick="app.submitMove()" class="w-full md:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-500/20 rounded-lg font-medium transition-all">
+                Collapse & Commit Move
+            </button>
+        `;
+                div.appendChild(btnContainer);
+            }
+
+            resetInput() {
+                this.state.inputVector = Array(9).fill(0);
+                this.render();
+            }
+
+            renderWeights() {
+                const div = document.getElementById('weights-list');
+                div.innerHTML = '';
+                const weights = this.calculateWeights();
+                const names = ['Row 1', 'Row 2', 'Row 3', 'Col 1', 'Col 2', 'Col 3', 'Diag 1', 'Diag 2'];
+
+                names.forEach((name, i) => {
+                    const wx = weights.X[i];
+                    const wo = weights.O[i];
+                    const isWinX = wx >= 1.5;
+                    const isWinO = wo >= 1.5;
+
+                    const row = document.createElement('div');
+                    row.className = "grid grid-cols-3 gap-2 text-sm items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 p-1 rounded";
+                    row.innerHTML = `
+                <div class="font-medium text-slate-600 dark:text-slate-400 pl-2">${name}</div>
+                <div class="text-center font-mono ${isWinX ? 'text-blue-600 font-bold bg-blue-100 dark:bg-blue-900 rounded' : 'text-slate-500'}">${wx.toFixed(3)}</div>
+                <div class="text-center font-mono ${isWinO ? 'text-red-600 font-bold bg-red-100 dark:bg-red-900 rounded' : 'text-slate-500'}">${wo.toFixed(3)}</div>
+            `;
+                    div.appendChild(row);
+                });
+            }
+
+            renderHistory() {
+                const div = document.getElementById('history-list');
+                div.innerHTML = '';
+
+                if (this.state.history.length === 0) {
+                    div.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm">No moves recorded yet.</div>`;
+                    return;
+                }
+
+                // Reverse to show newest first? No, chronological usually better, but let's scroll to bottom
+                this.state.history.forEach(h => {
+                    const item = document.createElement('div');
+                    item.className = "flex gap-3 text-sm p-2 rounded-lg bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-700 fade-in";
+
+                    const badges = h.squares.map(sq =>
+                        `<span class="text-[10px] bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">Sq ${sq + 1}</span>`
+                    ).join('');
+
+                    item.innerHTML = `
+                <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 ${h.player === 'X' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'}">${h.player}</div>
+                <div class="flex flex-col gap-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">Move ${h.moveNum}</span>
+                        <span class="text-xs text-slate-400">Targeting ${h.squares.length} squares</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1">${badges}</div>
+                </div>
+            `;
+                    div.appendChild(item);
+                });
+
+                // Auto scroll
+                div.scrollTop = div.scrollHeight;
+            }
+        }
+
+        // Start App
+        const app = new GameApp();
+    </script>
+</body>
+
+</html>
